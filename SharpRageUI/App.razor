@@ -1,0 +1,50 @@
+﻿@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject MPService? Mp
+@inject EventsContainer? EventsContainer
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <p role="alert">Sorry, there's nothing at this address.</p>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+@code {
+    private IJSObjectReference? module;
+    private DotNetObjectReference<EventsContainer>? _eventsContainerRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _eventsContainerRef = DotNetObjectReference.Create(EventsContainer!);
+            await JS.InvokeVoidAsync("setEventsContainer", _eventsContainerRef);
+
+            module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/rageAPI.js");
+            Mp!.SetMp(module);
+        }
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        if (module is not null)
+        {
+            try
+            {
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
+        _eventsContainerRef?.Dispose();
+    }
+}
